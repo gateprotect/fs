@@ -3149,11 +3149,10 @@ actual working directory.</p>
 we get the cwd effect on them.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn file
   [path &amp; paths]
-  (when path
-    (let [path (apply io/file (cons (if (= path &quot;.&quot;) @cwd path) paths))]
-      (if (.isAbsolute path)
-        path
-        (io/file @cwd path)))))</pre></td></tr><tr><td class="docs"><p>List files and directories under path.</p>
+  (when-let [path (apply io/file (if (= path &quot;.&quot;) @cwd path) paths)]
+    (if (.isAbsolute path)
+      path
+      (io/file @cwd path))))</pre></td></tr><tr><td class="docs"><p>List files and directories under path.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn list-dir
   [path]
   (seq (.list (file path))))</pre></td></tr><tr><td class="docs"><p>Return true if path is executable.</p>
