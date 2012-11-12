@@ -44,9 +44,8 @@
   to disk." [& filename-content-pairs]
   (let [file
         (let [pipe-in (java.io.PipedInputStream.)]
-          (future
             (with-open [zip (java.util.zip.ZipOutputStream. (java.io.PipedOutputStream. pipe-in))]
-              (add-zip-entry zip (flatten filename-content-pairs))))
+              (add-zip-entry zip (flatten filename-content-pairs)))
           pipe-in)]
     (io/input-stream file)))
 
