@@ -3,10 +3,21 @@
   (:use fs.core
         fs.compression
         midje.sweet)
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.string  :as string])
   (:import java.io.File))
 
 (def system-tempdir (System/getProperty "java.io.tmpdir"))
+
+(defn- expand-path [path]
+  (let [this-file      (->> (meta #'system-tempdir)
+                            :file
+                            (.getResource (clojure.lang.RT/baseLoader))
+                            (.getPath))
+        base-directory (.getParent (io/file this-file))]
+    (.getCanonicalPath (io/file base-directory (string/replace path #"^test/fs/" "")))))
+
+(def e expand-path)
 
 (defn create-walk-dir []
   (let [root (temp-dir "fs-")]
@@ -36,7 +47,7 @@
 
 ;; Want to change these files to be tempfiles at some point.
 (against-background
- [(around :contents (let [f (io/file "test/fs/testfiles/bar")]
+ [(around :contents (let [f (io/file (e "test/fs/testfiles/bar"))]
                       (.setExecutable f false)
                       (.setReadable f false)
                       (.setWritable f false)
@@ -45,38 +56,38 @@
                       (.setReadable f true)
                       (.setWritable f true)))]
  (fact
-   (executable? "test/fs/testfiles/foo") => true
-   (executable? "test/fs/testfiles/bar") => false)
+   (executable? (e "test/fs/testfiles/foo")) => true
+   (executable? (e "test/fs/testfiles/bar")) => false)
 
  (fact
-   (readable? "test/fs/testfiles/foo") => true
-   (readable? "test/fs/testfiles/bar") => false)
+   (readable? (e "test/fs/testfiles/foo")) => true
+   (readable? (e "test/fs/testfiles/bar")) => false)
 
  (fact
-   (writeable? "test/fs/testfiles/foo") => true
-   (writeable? "test/fs/testfiles/bar") => false))
+   (writeable? (e "test/fs/testfiles/foo")) => true
+   (writeable? (e "test/fs/testfiles/bar")) => false))
 
 (fact
-  (file? "test/fs/testfiles/foo") => true
+  (file? (e "test/fs/testfiles/foo")) => true
   (file? ".") => false)
 
 (fact
-  (exists? "test/fs/testfiles/foo") => true
+  (exists? (e "test/fs/testfiles/foo")) => true
   (exists? "ewjgnr4ig43j") => false)
 
 (fact
-  (let [f (io/file "test/fs/testfiles/baz")]
+  (let [f (io/file (e "test/fs/testfiles/baz"))]
     (.createNewFile f)
     (delete f)
     (exists? f) => false))
 
 (fact
   (directory? ".") => true
-  (directory? "test/fs/testfiles/foo") => false)
+  (directory? (e "test/fs/testfiles/foo")) => false)
 
 (fact
   (file? ".") => false
-  (file? "test/fs/testfiles/foo") => true)
+  (file? (e "test/fs/testfiles/foo")) => true)
 
 (fact
   (let [tmp (temp-file "fs-")]
@@ -211,6 +222,8 @@
      (home "") => env-home
      (home (System/getProperty "user.name")) => env-home)))
 
+(def cwd-basename (base-name (.getCanonicalPath (io/file "."))))
+
 (tabular
   (fact (split-ext ?file) => ?ext)
   
@@ -219,7 +232,7 @@
     "fs."           ["fs" "."]
     "fs.clj.bak"    ["fs.clj" ".bak"]
     "/path/to/fs"   ["fs" nil]
-    ""              ["fs" nil]
+    ""              [cwd-basename nil]
     "~user/.bashrc" [".bashrc" nil])
 
 (tabular
@@ -241,7 +254,7 @@
     "fs."           "fs"
     "fs.clj.bak"    "fs.clj"
     "/path/to/fs"   "fs"
-    ""              "fs"
+    ""              cwd-basename
     ".bashrc"       ".bashrc")
 
 (fact "Can change cwd with with-cwd."
@@ -255,7 +268,7 @@
       (chdir "foo")
       *cwd* => (io/file old "foo"))))
 
-(with-cwd "test/fs/testfiles"
+(with-cwd (e "test/fs/testfiles")
   (fact
     (unzip "ggg.zip" "zggg")
     (exists? "zggg/ggg") => true
